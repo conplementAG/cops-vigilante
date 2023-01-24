@@ -4,10 +4,15 @@ import (
 	copshq "github.com/conplementag/cops-hq/v2/pkg/hq"
 	"github.com/conplementag/cops-vigilante/internal/vigilante"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/cli"
+	"github.com/spf13/viper"
 )
 
 func createCommands(hq copshq.HQ) {
 	runCommand := hq.GetCli().AddBaseCommand("run", "start the vigilante application", "start the vigilante application", func() {
+		if viper.GetInt(cli.IntervalInSecondsFlag) < 15 {
+			panic(cli.IntervalInSecondsFlag + " should not be set to less than 15 seconds. We do not want to flood the k8s API server.")
+		}
+
 		vigilante.Run()
 	})
 
