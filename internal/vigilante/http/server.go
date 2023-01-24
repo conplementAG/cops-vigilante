@@ -9,7 +9,7 @@ import (
 )
 
 func Start() error {
-	router := createServer()
+	router := CreateServer()
 
 	if viper.GetBool(cli.TLSFlag) {
 		port := "8443"
@@ -22,7 +22,7 @@ func Start() error {
 	}
 }
 
-func createServer() *gin.Engine {
+func CreateServer() *gin.Engine {
 	router := gin.Default()
 
 	logrus.Info("We don't trust any proxies by default.")
