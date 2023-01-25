@@ -9,3 +9,7 @@ type FakeClock struct {
 func (f *FakeClock) Now() time.Time {
 	return f.CurrentTime
 }
+
+func (f *FakeClock) PassTime(duration time.Duration) {
+	f.CurrentTime = f.CurrentTime.Add(duration)
+}
