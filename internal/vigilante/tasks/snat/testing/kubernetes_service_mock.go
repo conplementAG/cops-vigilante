@@ -26,6 +26,9 @@ type KubernetesServiceMock struct {
 
 	// Clock can be used to influence timestamps set in this mock service, which can be helpful to determine when test data was created / updated
 	Clock clock.Clock
+
+	// Error_CreatePod can be set to make CreatePod always return errors
+	Error_CreatePod error
 }
 
 func NewKubernetesServiceMock(clock clock.Clock) *KubernetesServiceMock {
@@ -48,6 +51,10 @@ func (m *KubernetesServiceMock) AddNodeAnnotation(nodeName string, annotationKey
 }
 
 func (m *KubernetesServiceMock) CreatePod(pod *apicorev1.Pod) error {
+	if m.Error_CreatePod != nil {
+		return m.Error_CreatePod
+	}
+
 	pod.CreationTimestamp = apimachinerymetav1.NewTime(m.Clock.Now())
 	m.TestData_Pods[pod.Name] = pod
 

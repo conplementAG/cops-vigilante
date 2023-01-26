@@ -6,7 +6,8 @@ import (
 )
 
 type NodeHealingState struct {
-	HealingStartedAt time.Time
+	HealingStartedAt  time.Time
+	NumberOfErrorRuns int
 }
 
 func (s *NodeHealingState) IsHealingNecessary(clock clock.Clock) bool {

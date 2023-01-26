@@ -1,6 +1,7 @@
 package snat_test
 
 import (
+	"errors"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/clock/testing"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/database"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/services"
@@ -89,7 +90,7 @@ var _ = Describe("SNAT Worker", func() {
 			})
 		})
 
-		Context("healing time is passed", func() {
+		Context("healing time is passed without errors", func() {
 			BeforeEach(func() {
 				// set the time to be after the considered healing period
 				fakeClock.PassTime(snat.DefaultHealingDurationPerNode + time.Minute)
@@ -115,6 +116,62 @@ var _ = Describe("SNAT Worker", func() {
 			It("should remove the pod from the healed node(s)", func() {
 				Expect(kubernetesServiceMock.TestData_DeletedPods[consts.NodeHealerPodNamePrefix+AksWindowsNode1]).ToNot(BeNil())
 				Expect(kubernetesServiceMock.TestData_DeletedPods[consts.NodeHealerPodNamePrefix+AksWindowsNode2]).ToNot(BeNil())
+			})
+		})
+
+		Context("healing time is passed with some errors", func() {
+			BeforeEach(func() {
+				// run for a couple of times without errors
+				for i := 0; i < 10; i++ {
+					fakeClock.PassTime(30 * time.Second)
+					task.Run()
+				}
+
+				// then for a couple of times with errors when scheduling the pods
+				kubernetesServiceMock.Error_CreatePod = errors.New("some issue occurred")
+				for i := 0; i < 5; i++ {
+					fakeClock.PassTime(30 * time.Second)
+					task.Run()
+				}
+
+				// set the time to be after the considered healing period and run
+				fakeClock.PassTime(snat.DefaultHealingDurationPerNode + time.Minute)
+				task.Run()
+			})
+
+			It("should still mark the node as healed if the error threshold is not reached", func() {
+				Expect(services.FindNodeByName(kubernetesServiceMock.TestData_Nodes, AksWindowsNode1).Annotations[consts.NodeHealedAnnotation]).
+					To(Equal("true"))
+				Expect(services.FindNodeByName(kubernetesServiceMock.TestData_Nodes, AksWindowsNode2).Annotations[consts.NodeHealedAnnotation]).
+					To(Equal("true"))
+			})
+		})
+
+		Context("healing time is passed with a lot of errors", func() {
+			BeforeEach(func() {
+				// run for a couple of times without errors
+				for i := 0; i < 5; i++ {
+					fakeClock.PassTime(30 * time.Second)
+					task.Run()
+				}
+
+				// then for a lot of times with many pod creation errors
+				kubernetesServiceMock.Error_CreatePod = errors.New("some issue occurred")
+				for i := 0; i < 30; i++ {
+					fakeClock.PassTime(30 * time.Second)
+					task.Run()
+				}
+
+				// set the time to be after the considered healing period and run
+				fakeClock.PassTime(snat.DefaultHealingDurationPerNode + time.Minute)
+				task.Run()
+			})
+
+			It("should mark no node as healed", func() {
+				_, keyFound := services.FindNodeByName(kubernetesServiceMock.TestData_Nodes, AksWindowsNode1).Annotations[consts.NodeHealedAnnotation]
+				Expect(keyFound).To(BeFalse())
+				_, keyFound = services.FindNodeByName(kubernetesServiceMock.TestData_Nodes, AksWindowsNode2).Annotations[consts.NodeHealedAnnotation]
+				Expect(keyFound).To(BeFalse())
 			})
 		})
 	})

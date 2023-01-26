@@ -1,6 +1,7 @@
 package snat
 
 import (
+	"fmt"
 	"github.com/ahmetb/go-linq/v3"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/clock"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/database"
@@ -9,6 +10,7 @@ import (
 	"github.com/conplementag/cops-vigilante/internal/vigilante/tasks/snat/metrics"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimachinerymetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
@@ -54,44 +56,40 @@ func (s *snatTask) heal() {
 	s.updateStateDatabase(readyNonHealedWindowsNodes)
 
 	for _, node := range readyNonHealedWindowsNodes {
-		logrus.Info("[SNAT Task] Found a ready non healed windows node: " + node.Name)
-
 		s.initializeHealingStateIfRequired(node.Name)
 		healingState := s.stateDatabase.Get(node.Name).(*NodeHealingState)
 
-		if healingState.IsHealingNecessary(s.clock) {
-			err := s.deleteHealingPodIfAlreadyScheduled(node.Name)
+		if healingState.NumberOfErrorRuns >= 10 {
+			logrus.Debugf("Skipping the healing for node %s to to number of errors reached: %d", node.Name, healingState.NumberOfErrorRuns)
+			continue
+		}
 
-			// TODO error handling
+		if healingState.IsHealingNecessary(s.clock) {
+			logrus.Info("[SNAT Task] Found a ready non healed windows node: " + node.Name)
+			s.metrics.IncHealAttemptsCounter()
+
+			err := s.deleteHealingPodIfAlreadyScheduled(node.Name)
 			if err != nil {
-				logrus.Error(err)
-				panic(err)
+				s.handleError(node.Name, err)
+				continue
 			}
 
 			err = s.createHealingPod(node.Name)
-
-			// TODO error handling
 			if err != nil {
-				logrus.Error(err)
-				panic(err)
+				s.handleError(node.Name, err)
+				continue
 			}
-
-			s.metrics.IncHealAttemptsCounter()
 		} else {
 			err := s.deleteHealingPodIfAlreadyScheduled(node.Name)
-
-			// TODO error handling
 			if err != nil {
-				logrus.Error(err)
-				panic(err)
+				s.handleError(node.Name, err)
+				continue
 			}
 
 			err = s.markNodeHealed(node.Name)
-
-			// TODO error handling
 			if err != nil {
-				logrus.Error(err)
-				panic(err)
+				s.handleError(node.Name, err)
+				continue
 			}
 		}
 	}
@@ -172,7 +170,14 @@ func (s *snatTask) initializeHealingStateIfRequired(nodeName string) {
 }
 
 func (s *snatTask) deleteHealingPodIfAlreadyScheduled(nodeName string) error {
-	return s.kubernetesService.DeletePod(consts.NodeHealerNamespace, consts.NodeHealerPodNamePrefix+nodeName)
+	err := s.kubernetesService.DeletePod(consts.NodeHealerNamespace, consts.NodeHealerPodNamePrefix+nodeName)
+
+	// as the method name suggests, this error can be ignored
+	if apierrors.IsNotFound(err) {
+		return nil
+	} else {
+		return err
+	}
 }
 
 func (s *snatTask) createHealingPod(nodeName string) error {
@@ -197,6 +202,25 @@ func (s *snatTask) createHealingPod(nodeName string) error {
 			TerminationGracePeriodSeconds: &terminationGracePeriod,
 		},
 	})
+}
+
+// handleError handles errors that occur during a node healing step
+func (s *snatTask) handleError(nodeName string, err error) {
+	logrus.Warnf("[SNAT Task] error occured, will be recorded. Error: %v", err)
+	healingState := s.stateDatabase.Get(nodeName).(*NodeHealingState)
+
+	if healingState == nil {
+		panic(fmt.Sprintf("Got an error during healing of a node %s, but the state for that node was not found. "+
+			"This should not be possible.", nodeName))
+	}
+
+	healingState.NumberOfErrorRuns++
+
+	numberOfErrorsRunsLimit := 10
+
+	if healingState.NumberOfErrorRuns >= numberOfErrorsRunsLimit {
+		logrus.Errorf("Healing of node %s reached the maximum ammount of errors that are allowed to occur: %d", nodeName, numberOfErrorsRunsLimit)
+	}
 }
 
 func (s *snatTask) markNodeHealed(nodeName string) error {
