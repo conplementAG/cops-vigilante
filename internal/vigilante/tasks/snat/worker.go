@@ -8,8 +8,8 @@ import (
 	"github.com/conplementag/cops-vigilante/internal/vigilante/tasks/snat/consts"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/tasks/snat/metrics"
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	apimachinerymetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
 
@@ -97,8 +97,8 @@ func (s *snatTask) heal() {
 	}
 }
 
-func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*v1.Node) []*v1.Node {
-	var results []*v1.Node
+func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*corev1.Node) []*corev1.Node {
+	var results []*corev1.Node
 
 	for _, node := range nodes {
 		if val, ok := node.Labels["kubernetes.io/os"]; ok {
@@ -107,8 +107,8 @@ func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*v1.Node) []*v1.N
 			}
 		}
 
-		conditionSearchResult := linq.From(node.Status.Conditions).WhereT(func(condition v1.NodeCondition) bool {
-			return condition.Type == v1.NodeReady
+		conditionSearchResult := linq.From(node.Status.Conditions).WhereT(func(condition corev1.NodeCondition) bool {
+			return condition.Type == corev1.NodeReady
 		}).Single()
 
 		if conditionSearchResult == nil {
@@ -118,9 +118,9 @@ func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*v1.Node) []*v1.N
 			continue // node does not need to be processed anymore since not ready
 		}
 
-		readyCondition := conditionSearchResult.(v1.NodeCondition)
+		readyCondition := conditionSearchResult.(corev1.NodeCondition)
 
-		if readyCondition.Status != v1.ConditionTrue {
+		if readyCondition.Status != corev1.ConditionTrue {
 			logrus.Debugf("[SNAT Task] Found non-ready windows node %v, reason: %v", node.Name, readyCondition.Reason)
 			s.metrics.IncNumberOfNotReadyNodesSeen()
 
@@ -139,7 +139,7 @@ func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*v1.Node) []*v1.N
 	return results
 }
 
-func (s *snatTask) updateStateDatabase(readyWindowsNodes []*v1.Node) {
+func (s *snatTask) updateStateDatabase(readyWindowsNodes []*corev1.Node) {
 	// If the healing is recorded in our state, and the node becomes un-ready or with unknown state, then we should remove
 	// the healing record and forget about the node. Once it becomes ready again, the healing process will
 	// effectively restart because the new state will be written for that node. In this case, we should also
@@ -147,7 +147,7 @@ func (s *snatTask) updateStateDatabase(readyWindowsNodes []*v1.Node) {
 	var itemKeysToRemoveFromState []string
 
 	for key, _ := range s.stateDatabase.GetAll() {
-		readyNode := linq.From(readyWindowsNodes).WhereT(func(node *v1.Node) bool {
+		readyNode := linq.From(readyWindowsNodes).WhereT(func(node *corev1.Node) bool {
 			return node.Name == key
 		}).Single()
 
@@ -178,17 +178,17 @@ func (s *snatTask) deleteHealingPodIfAlreadyScheduled(nodeName string) error {
 func (s *snatTask) createHealingPod(nodeName string) error {
 	terminationGracePeriod := int64(0)
 
-	return s.kubernetesService.CreatePod(&v1.Pod{
-		ObjectMeta: v12.ObjectMeta{
+	return s.kubernetesService.CreatePod(&corev1.Pod{
+		ObjectMeta: apimachinerymetav1.ObjectMeta{
 			Name:      consts.NodeHealerPodNamePrefix + nodeName,
 			Namespace: consts.NodeHealerNamespace,
 		},
-		Spec: v1.PodSpec{
+		Spec: corev1.PodSpec{
 			NodeSelector: map[string]string{
 				"kubernetes.io/os":       "windows",
 				"kubernetes.io/hostname": nodeName,
 			},
-			Containers: []v1.Container{
+			Containers: []corev1.Container{
 				{
 					Name:  "pause-container",
 					Image: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
