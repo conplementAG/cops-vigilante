@@ -31,42 +31,36 @@ func (s *snatTask) Run() {
 	logrus.Debug("[SNAT Task] finished in " + time.Since(start).String())
 }
 
-type NodeHealingState struct {
-	HealingStartedAt time.Time
-}
-
-func (s *NodeHealingState) IsHealingNecessary(clock clock.Clock) bool {
-	return clock.Now().Before(s.HealingStartedAt.Add(DefaultHealingDurationPerNode))
-}
-
+// heal runs the healing logic and explicitly cannot error out, since all errors should be handled already. In case of issue
+// a panic would occur.
 func (s *snatTask) heal() {
-	allNodes, err := s.kubernetesService.GetAllNodes() // TODO error handling
+	allNodes, err := s.kubernetesService.GetAllNodes()
 
-	if err != nil { // TODO error handling
+	if err != nil {
+		// Errors during node fetch should be logged and basically ignored, in hope the next run would fix the issue.
+		// This should be the only error which should go on for infinity. Perhaps consider some backoff logic here in
+		// the future.
 		logrus.Error(err)
 		return
 	}
 
-	// we only want to process ready non-healed windows nodes here, other ones are of no interest since:
+	// We only want to process ready non-healed windows nodes here, other ones are of no interest since:
 	// - we cannot cover all edge cases if the "heal" pod is possible to schedule etc.
 	// - linux nodes are of no interest in SNAT
 	// - healed nodes are simply considered healthy until the annotation is removed manually
 	readyNonHealedWindowsNodes := s.filterForReadyNonHealedWindowsNodes(allNodes)
 
+	// Some cases, like nodes becoming unready, require us to restart the healing process.
+	s.updateStateDatabase(readyNonHealedWindowsNodes)
+
 	for _, node := range readyNonHealedWindowsNodes {
-		logrus.Debug("[SNAT Task] Found a ready non healed windows node: " + node.Name)
+		logrus.Info("[SNAT Task] Found a ready non healed windows node: " + node.Name)
 
-		// initialize healing state if required
-		if s.stateDatabase.Get(node.Name) == nil {
-			s.stateDatabase.Set(node.Name, &NodeHealingState{
-				HealingStartedAt: s.clock.Now(),
-			})
-		}
-
+		s.initializeHealingStateIfRequired(node.Name)
 		healingState := s.stateDatabase.Get(node.Name).(*NodeHealingState)
 
 		if healingState.IsHealingNecessary(s.clock) {
-			err := s.kubernetesService.DeletePod(consts.NodeHealerPodNamePrefix+consts.NodeHealerNamespace, node.Name)
+			err := s.deleteHealingPodIfAlreadyScheduled(node.Name)
 
 			// TODO error handling
 			if err != nil {
@@ -74,27 +68,7 @@ func (s *snatTask) heal() {
 				panic(err)
 			}
 
-			terminationGracePeriod := int64(0)
-
-			err = s.kubernetesService.CreatePod(&v1.Pod{
-				ObjectMeta: v12.ObjectMeta{
-					Name:      consts.NodeHealerPodNamePrefix + node.Name,
-					Namespace: consts.NodeHealerNamespace,
-				},
-				Spec: v1.PodSpec{
-					NodeSelector: map[string]string{
-						"kubernetes.io/os":       "windows",
-						"kubernetes.io/hostname": node.Name,
-					},
-					Containers: []v1.Container{
-						{
-							Name:  "pause-container",
-							Image: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
-						},
-					},
-					TerminationGracePeriodSeconds: &terminationGracePeriod,
-				},
-			})
+			err = s.createHealingPod(node.Name)
 
 			// TODO error handling
 			if err != nil {
@@ -104,7 +78,7 @@ func (s *snatTask) heal() {
 
 			s.metrics.IncHealAttemptsCounter()
 		} else {
-			err := s.kubernetesService.DeletePod(consts.NodeHealerPodNamePrefix+consts.NodeHealerNamespace, node.Name)
+			err := s.deleteHealingPodIfAlreadyScheduled(node.Name)
 
 			// TODO error handling
 			if err != nil {
@@ -112,7 +86,7 @@ func (s *snatTask) heal() {
 				panic(err)
 			}
 
-			err = s.kubernetesService.AddNodeAnnotation(node.Name, consts.NodeHealedAnnotation, "true")
+			err = s.markNodeHealed(node.Name)
 
 			// TODO error handling
 			if err != nil {
@@ -163,4 +137,68 @@ func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*v1.Node) []*v1.N
 	}
 
 	return results
+}
+
+func (s *snatTask) updateStateDatabase(readyWindowsNodes []*v1.Node) {
+	// If the healing is recorded in our state, and the node becomes un-ready or with unknown state, then we should remove
+	// the healing record and forget about the node. Once it becomes ready again, the healing process will
+	// effectively restart because the new state will be written for that node. In this case, we should also
+	// not attempt any.
+	var itemKeysToRemoveFromState []string
+
+	for key, _ := range s.stateDatabase.GetAll() {
+		readyNode := linq.From(readyWindowsNodes).WhereT(func(node *v1.Node) bool {
+			return node.Name == key
+		}).Single()
+
+		if readyNode == nil {
+			itemKeysToRemoveFromState = append(itemKeysToRemoveFromState, key)
+		}
+	}
+
+	// We delete outside the loop above to prevent modifying the state database in the same loop (removing items from
+	// a "collection" while iterating the same collection is never a good idea).
+	for _, key := range itemKeysToRemoveFromState {
+		s.stateDatabase.Delete(key)
+	}
+}
+
+func (s *snatTask) initializeHealingStateIfRequired(nodeName string) {
+	if s.stateDatabase.Get(nodeName) == nil {
+		s.stateDatabase.Set(nodeName, &NodeHealingState{
+			HealingStartedAt: s.clock.Now(),
+		})
+	}
+}
+
+func (s *snatTask) deleteHealingPodIfAlreadyScheduled(nodeName string) error {
+	return s.kubernetesService.DeletePod(consts.NodeHealerNamespace, consts.NodeHealerPodNamePrefix+nodeName)
+}
+
+func (s *snatTask) createHealingPod(nodeName string) error {
+	terminationGracePeriod := int64(0)
+
+	return s.kubernetesService.CreatePod(&v1.Pod{
+		ObjectMeta: v12.ObjectMeta{
+			Name:      consts.NodeHealerPodNamePrefix + nodeName,
+			Namespace: consts.NodeHealerNamespace,
+		},
+		Spec: v1.PodSpec{
+			NodeSelector: map[string]string{
+				"kubernetes.io/os":       "windows",
+				"kubernetes.io/hostname": nodeName,
+			},
+			Containers: []v1.Container{
+				{
+					Name:  "pause-container",
+					Image: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+				},
+			},
+			TerminationGracePeriodSeconds: &terminationGracePeriod,
+		},
+	})
+}
+
+func (s *snatTask) markNodeHealed(nodeName string) error {
+	return s.kubernetesService.AddNodeAnnotation(nodeName, consts.NodeHealedAnnotation, "true")
 }

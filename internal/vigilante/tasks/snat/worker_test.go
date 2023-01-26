@@ -171,14 +171,35 @@ var _ = Describe("SNAT Worker", func() {
 				})
 
 				Context("and the same node becomes ready again", func() {
+					var timeWhenNodeBecameReadyAgain time.Time
+
 					BeforeEach(func() {
 						UpdateNodeCondition(services.FindNodeByName(kubernetesServiceMock.TestData_Nodes, newNodeName), true)
 
 						fakeClock.PassTime(2 * time.Minute)
+						timeWhenNodeBecameReadyAgain = fakeClock.CurrentTime
 						task.Run()
 					})
 
 					It("should remove the old pod", func() {
+						Expect(kubernetesServiceMock.TestData_DeletedPods[consts.NodeHealerPodNamePrefix+newNodeName]).ToNot(BeNil())
+					})
+
+					It("should run the normal healing process again (duration restarted), all the way until the end", func() {
+						By("scheduling a new healing pod")
+						Expect(kubernetesServiceMock.TestData_Pods[consts.NodeHealerPodNamePrefix+newNodeName].CreationTimestamp).
+							To(Equal(apimachinerymetav1.NewTime(timeWhenNodeBecameReadyAgain)))
+
+						By("still scheduling a new healing pod if the duration did not pass yet")
+						fakeClock.PassTime(snat.DefaultHealingDurationPerNode - time.Minute)
+						task.Run()
+						Expect(kubernetesServiceMock.TestData_Pods[consts.NodeHealerPodNamePrefix+newNodeName].CreationTimestamp).
+							To(Equal(apimachinerymetav1.NewTime(fakeClock.CurrentTime)))
+
+						By("removing the healer pod after the heal duration has passed")
+						fakeClock.PassTime(2 * time.Minute)
+						task.Run()
+						Expect(kubernetesServiceMock.TestData_Pods[consts.NodeHealerPodNamePrefix+newNodeName]).To(BeNil())
 						Expect(kubernetesServiceMock.TestData_DeletedPods[consts.NodeHealerPodNamePrefix+newNodeName]).ToNot(BeNil())
 					})
 				})
