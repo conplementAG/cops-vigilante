@@ -7,4 +7,10 @@ type Database interface {
 
 	// Get returns the value found by key. Returns nil if nothing found
 	Get(key string) interface{}
+
+	// GetAll returns all elements in a normal map representation
+	GetAll() map[string]interface{}
+
+	// Delete removes the key from the database
+	Delete(key string)
 }

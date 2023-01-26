@@ -26,5 +26,14 @@ var _ = Describe("InMemory", func() {
 			Expect(db.Get("b")).To(Equal("any value here 2"))
 			Expect(db.Get("c")).To(BeNil())
 		})
+
+		It("should return all when requested", func() {
+			Expect(len(db.GetAll())).To(Equal(2))
+		})
+
+		It("should be able to delete", func() {
+			db.Delete("a")
+			Expect(db.Get("a")).To(BeNil())
+		})
 	})
 })
