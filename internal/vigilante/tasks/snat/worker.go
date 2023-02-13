@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/ahmetb/go-linq/v3"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/clock"
-	"github.com/conplementag/cops-vigilante/internal/vigilante/database"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/services"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/tasks/snat/consts"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/tasks/snat/metrics"
@@ -12,12 +11,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimachinerymetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 	"time"
 )
 
 type snatTask struct {
 	kubernetesService services.KubernetesService
-	stateDatabase     database.Database
+	state             map[string]interface{}
 	metrics           metrics.SnatMetrics
 	clock             clock.Clock
 }
@@ -53,11 +53,11 @@ func (s *snatTask) heal() {
 	readyNonHealedWindowsNodes := s.filterForReadyNonHealedWindowsNodes(allNodes)
 
 	// Some cases, like nodes becoming unready, require us to restart the healing process.
-	s.updateStateDatabase(readyNonHealedWindowsNodes)
+	s.updateState(readyNonHealedWindowsNodes)
 
 	for _, node := range readyNonHealedWindowsNodes {
 		s.initializeHealingStateIfRequired(node.Name)
-		healingState := s.stateDatabase.Get(node.Name).(*NodeHealingState)
+		healingState := s.state[node.Name].(*NodeHealingState)
 
 		if healingState.NumberOfErrorRuns >= 10 {
 			logrus.Debugf("Skipping the healing for node %s to to number of errors reached: %d", node.Name, healingState.NumberOfErrorRuns)
@@ -100,7 +100,7 @@ func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*corev1.Node) []*
 
 	for _, node := range nodes {
 		if val, ok := node.Labels["kubernetes.io/os"]; ok {
-			if val != "windows" && val != "Windows" {
+			if !strings.EqualFold(val, "windows") {
 				continue // other node types are of no interest
 			}
 		}
@@ -137,14 +137,14 @@ func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*corev1.Node) []*
 	return results
 }
 
-func (s *snatTask) updateStateDatabase(readyWindowsNodes []*corev1.Node) {
+func (s *snatTask) updateState(readyWindowsNodes []*corev1.Node) {
 	// If the healing is recorded in our state, and the node becomes un-ready or with unknown state, then we should remove
 	// the healing record and forget about the node. Once it becomes ready again, the healing process will
 	// effectively restart because the new state will be written for that node. In this case, we should also
 	// not attempt any.
 	var itemKeysToRemoveFromState []string
 
-	for key, _ := range s.stateDatabase.GetAll() {
+	for key, _ := range s.state {
 		readyNode := linq.From(readyWindowsNodes).WhereT(func(node *corev1.Node) bool {
 			return node.Name == key
 		}).Single()
@@ -154,18 +154,18 @@ func (s *snatTask) updateStateDatabase(readyWindowsNodes []*corev1.Node) {
 		}
 	}
 
-	// We delete outside the loop above to prevent modifying the state database in the same loop (removing items from
+	// We delete outside the loop above to prevent modifying the state in the same loop (removing items from
 	// a "collection" while iterating the same collection is never a good idea).
 	for _, key := range itemKeysToRemoveFromState {
-		s.stateDatabase.Delete(key)
+		delete(s.state, key)
 	}
 }
 
 func (s *snatTask) initializeHealingStateIfRequired(nodeName string) {
-	if s.stateDatabase.Get(nodeName) == nil {
-		s.stateDatabase.Set(nodeName, &NodeHealingState{
+	if s.state[nodeName] == nil {
+		s.state[nodeName] = &NodeHealingState{
 			HealingStartedAt: s.clock.Now(),
-		})
+		}
 	}
 }
 
@@ -207,7 +207,7 @@ func (s *snatTask) createHealingPod(nodeName string) error {
 // handleError handles errors that occur during a node healing step
 func (s *snatTask) handleError(nodeName string, err error) {
 	logrus.Warnf("[SNAT Task] error occured, will be recorded. Error: %v", err)
-	healingState := s.stateDatabase.Get(nodeName).(*NodeHealingState)
+	healingState := s.state[nodeName].(*NodeHealingState)
 
 	if healingState == nil {
 		panic(fmt.Sprintf("Got an error during healing of a node %s, but the state for that node was not found. "+

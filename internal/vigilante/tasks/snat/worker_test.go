@@ -3,7 +3,6 @@ package snat_test
 import (
 	"errors"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/clock/testing"
-	"github.com/conplementag/cops-vigilante/internal/vigilante/database"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/services"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/tasks"
 	"github.com/conplementag/cops-vigilante/internal/vigilante/tasks/snat"
@@ -30,7 +29,7 @@ var _ = Describe("SNAT Worker", func() {
 		metricsRecorderMock.On("IncHealAttemptsCounter", mock.Anything)
 		metricsRecorderMock.On("IncNumberOfNotReadyNodesSeen", mock.Anything)
 
-		task = snat.NewSnatTask(kubernetesServiceMock, database.NewInMemoryDatabase(), metricsRecorderMock, fakeClock)
+		task = snat.NewSnatTask(kubernetesServiceMock, metricsRecorderMock, fakeClock)
 	})
 
 	When("running on a fresh cluster", func() {
