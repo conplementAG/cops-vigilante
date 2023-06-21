@@ -47,7 +47,9 @@ func (k *kubernetesService) GetAllNodes() ([]*core1.Node, error) {
 	var results []*core1.Node
 
 	for _, node := range nodesList.Items {
-		results = append(results, &node)
+		// deep copy into a new object required to produce a list of pointers. We cannot simply use &node here
+		// because this variable is kept for the loop (it is not recreated), and all the pointers would point to the same value!
+		results = append(results, node.DeepCopy())
 	}
 
 	return results, nil
@@ -77,7 +79,8 @@ func (k *kubernetesService) CreatePod(pod *core1.Pod) error {
 }
 
 func (k *kubernetesService) DeletePod(namespace string, name string) error {
-	return k.clientSet.CoreV1().Pods(namespace).Delete(context.TODO(), name, v1.DeleteOptions{})
+	pods := k.clientSet.CoreV1().Pods(namespace)
+	return pods.Delete(context.TODO(), name, v1.DeleteOptions{})
 }
 
 func getConfig() (*rest.Config, error) {
