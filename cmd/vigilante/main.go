@@ -2,6 +2,7 @@ package main
 
 import (
 	copshq "github.com/conplementag/cops-hq/v2/pkg/hq"
+	"github.com/conplementag/cops-vigilante/internal/vigilante/config"
 	"github.com/sirupsen/logrus"
 	"os"
 )
@@ -9,14 +10,18 @@ import (
 func main() {
 	defer errorhandler()
 
-	hq := copshq.NewCustom("cops-vigilante", "0.0.1", &copshq.HqOptions{
+	hq := copshq.NewCustom("cops-vigilante", "1.0.0", &copshq.HqOptions{
 		Quiet: false,
 
 		// the service normally runs in a Kubernetes env, so logging to a file is not necessary.
-		// Also, in a distroless image we don't really want to write to the file system anyway.
+		// Also, in a distro-less image we don't really want to write to the file system anyway.
 		DisableFileLogging: true,
 		LogFileName:        "",
 	})
+
+	// calling this method before anything else is instantiated (like viper CLI parameter connect) so that the order of
+	// config overwrites is kept
+	config.LoadConfigFiles()
 
 	createCommands(hq)
 	hq.Run()

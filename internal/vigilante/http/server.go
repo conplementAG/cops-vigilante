@@ -14,9 +14,9 @@ func Start() error {
 	if viper.GetBool(cli.TLSFlag) {
 		port := "8443"
 		logrus.Info("Starting the server with TLS on " + port)
-		return router.RunTLS(":"+port, "/etc/certs/tls.crt", "/etc/certs/tls.key")
+		return router.RunTLS(":"+port, "/etc/vigilante/certs/tls.crt", "/etc/vigilante/certs/tls.key")
 	} else {
-		port := "8003"
+		port := "8000"
 		logrus.Info("Starting the server (plain HTTP) on " + port)
 		return router.Run(":" + port)
 	}

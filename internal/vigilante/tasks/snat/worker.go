@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	apimachinerymetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"time"
 )
@@ -23,6 +22,7 @@ type snatTask struct {
 }
 
 var DefaultHealingDurationPerNode = time.Minute * 30
+var NumberOfErrorsToleratedThreshold = 10
 
 func (s *snatTask) Run() {
 	start := s.clock.Now()
@@ -42,24 +42,27 @@ func (s *snatTask) heal() {
 		// Errors during node fetch should be logged and basically ignored, in hope the next run would fix the issue.
 		// This should be the only error which should go on for infinity. Perhaps consider some backoff logic here in
 		// the future.
+		logrus.Error("GetAllNodes produced an error (will be logged as the next log output line). This heal() run will be stopped, " +
+			"in hope that the next one works without an error.")
 		logrus.Error(err)
 		return
 	}
 
 	// We only want to process ready non-healed windows nodes here, other ones are of no interest since:
-	// - we cannot cover all edge cases if the "heal" pod is possible to schedule etc.
+	// - in case of non-ready nodes, we cannot cover all edge cases if the "heal" pod is possible to schedule etc.
 	// - linux nodes are of no interest in SNAT
-	// - healed nodes are simply considered healthy until the annotation is removed manually
+	// - healed nodes are simply considered healthy, except perhaps if the annotation is removed manually
 	readyNonHealedWindowsNodes := s.filterForReadyNonHealedWindowsNodes(allNodes)
 
-	// Some cases, like nodes becoming unready, require us to restart the healing process.
-	s.updateState(readyNonHealedWindowsNodes)
+	// we need to "update" our state for the new result, for example, perhaps some nodes are missing because removed / turned not-ready
+	// in which case we will remove then from state.
+	s.reconcileState(readyNonHealedWindowsNodes)
 
 	for _, node := range readyNonHealedWindowsNodes {
 		s.initializeHealingStateIfRequired(node.Name)
 		healingState := s.state[node.Name].(*NodeHealingState)
 
-		if healingState.NumberOfErrorRuns >= 10 {
+		if healingState.NumberOfErrorRuns >= NumberOfErrorsToleratedThreshold {
 			logrus.Debugf("Skipping the healing for node %s to to number of errors reached: %d", node.Name, healingState.NumberOfErrorRuns)
 			continue
 		}
@@ -137,7 +140,7 @@ func (s *snatTask) filterForReadyNonHealedWindowsNodes(nodes []*corev1.Node) []*
 	return results
 }
 
-func (s *snatTask) updateState(readyWindowsNodes []*corev1.Node) {
+func (s *snatTask) reconcileState(readyWindowsNodes []*corev1.Node) {
 	// If the healing is recorded in our state, and the node becomes un-ready or with unknown state, then we should remove
 	// the healing record and forget about the node. Once it becomes ready again, the healing process will
 	// effectively restart because the new state will be written for that node. In this case, we should also
@@ -181,27 +184,7 @@ func (s *snatTask) deleteHealingPodIfAlreadyScheduled(nodeName string) error {
 }
 
 func (s *snatTask) createHealingPod(nodeName string) error {
-	terminationGracePeriod := int64(0)
-
-	return s.kubernetesService.CreatePod(&corev1.Pod{
-		ObjectMeta: apimachinerymetav1.ObjectMeta{
-			Name:      consts.NodeHealerPodNamePrefix + nodeName,
-			Namespace: consts.NodeHealerNamespace,
-		},
-		Spec: corev1.PodSpec{
-			NodeSelector: map[string]string{
-				"kubernetes.io/os":       "windows",
-				"kubernetes.io/hostname": nodeName,
-			},
-			Containers: []corev1.Container{
-				{
-					Name:  "pause-container",
-					Image: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
-				},
-			},
-			TerminationGracePeriodSeconds: &terminationGracePeriod,
-		},
-	})
+	return s.kubernetesService.CreatePod(GetHealingPodDefinition(nodeName))
 }
 
 // handleError handles errors that occur during a node healing step
@@ -216,10 +199,8 @@ func (s *snatTask) handleError(nodeName string, err error) {
 
 	healingState.NumberOfErrorRuns++
 
-	numberOfErrorsRunsLimit := 10
-
-	if healingState.NumberOfErrorRuns >= numberOfErrorsRunsLimit {
-		logrus.Errorf("Healing of node %s reached the maximum ammount of errors that are allowed to occur: %d", nodeName, numberOfErrorsRunsLimit)
+	if healingState.NumberOfErrorRuns >= NumberOfErrorsToleratedThreshold {
+		logrus.Errorf("Healing of node %s reached the maximum ammount of errors that are allowed to occur: %d", nodeName, NumberOfErrorsToleratedThreshold)
 	}
 }
 

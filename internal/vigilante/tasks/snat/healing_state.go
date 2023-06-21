@@ -10,6 +10,11 @@ type NodeHealingState struct {
 	NumberOfErrorRuns int
 }
 
+// IsHealingNecessary follows the logic that the healing for a node is required until the DefaultHealingDurationPerNode period
+// is reached, after which the node is considered "healed"
 func (s *NodeHealingState) IsHealingNecessary(clock clock.Clock) bool {
-	return clock.Now().Before(s.HealingStartedAt.Add(DefaultHealingDurationPerNode))
+	currentTime := clock.Now()
+	triggerTime := s.HealingStartedAt.Add(DefaultHealingDurationPerNode)
+
+	return currentTime.Before(triggerTime)
 }

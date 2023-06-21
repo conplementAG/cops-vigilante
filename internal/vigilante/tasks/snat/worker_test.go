@@ -121,7 +121,7 @@ var _ = Describe("SNAT Worker", func() {
 		Context("healing time is passed with some errors", func() {
 			BeforeEach(func() {
 				// run for a couple of times without errors
-				for i := 0; i < 10; i++ {
+				for i := 0; i < snat.NumberOfErrorsToleratedThreshold-1; i++ {
 					fakeClock.PassTime(30 * time.Second)
 					task.Run()
 				}
@@ -156,7 +156,7 @@ var _ = Describe("SNAT Worker", func() {
 
 				// then for a lot of times with many pod creation errors
 				kubernetesServiceMock.Error_CreatePod = errors.New("some issue occurred")
-				for i := 0; i < 30; i++ {
+				for i := 0; i < 20+snat.NumberOfErrorsToleratedThreshold; i++ {
 					fakeClock.PassTime(30 * time.Second)
 					task.Run()
 				}
