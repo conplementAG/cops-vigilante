@@ -1,0 +1,54 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "coreops-vigilante.fullname" . }}-ca-issuer
+  namespace: {{ .Release.Namespace }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "coreops-vigilante.fullname" . }}-ca-certificate
+  namespace: {{ .Release.Namespace }}
+spec:
+  commonName: {{ include "coreops-vigilante.fullname" . }}.{{ .Release.Namespace }}.svc
+  secretName: {{ include "coreops-vigilante.fullname" . }}-ca
+  usages:
+    - server auth
+    - client auth
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  isCA: true
+  issuerRef:
+    name: {{ include "coreops-vigilante.fullname" . }}-ca-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "coreops-vigilante.fullname" . }}-issuer
+  namespace: {{ .Release.Namespace }}
+spec:
+  ca:
+    secretName: {{ include "coreops-vigilante.fullname" . }}-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "coreops-vigilante.fullname" . }}-tls-certificate
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ include "coreops-vigilante.fullname" . }}-tls
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - {{ include "coreops-vigilante.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+    - {{ include "coreops-vigilante.fullname" . }}.{{ .Release.Namespace }}.svc
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  isCA: false
+  issuerRef:
+    name: {{ include "coreops-vigilante.fullname" . }}-issuer

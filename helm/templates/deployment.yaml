@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "coreops-vigilante.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "coreops-vigilante.labels" . | nindent 4 }}
+spec:
+  replicas: 1 # TODO not really tested for running in multi-replica mode, although it should work fine
+  selector:
+    matchLabels:
+      {{- include "coreops-vigilante.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "coreops-vigilante.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8443
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTPS
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTPS
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /etc/vigilante/certs
+              readOnly: true
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+#          resources:
+#            { { - toYaml .Values.resources | nindent 12 } }
+      volumes:
+        - name: tls-certs
+          secret:
+            secretName: {{ include "coreops-vigilante.fullname" . }}-tls
+      nodeSelector:
+        kubernetes.io/os: linux

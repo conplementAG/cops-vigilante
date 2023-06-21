@@ -1,4 +1,6 @@
-
 cmd/.DS_Store
-
 .DS_Store
+
+config/conf.yaml
+cmd/dev/.generated
+helm/values.override.yaml

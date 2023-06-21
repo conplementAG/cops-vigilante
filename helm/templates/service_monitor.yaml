@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "coreops-vigilante.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "coreops-vigilante.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "coreops-vigilante.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /metrics
+      honorLabels: true
