@@ -68,7 +68,7 @@ func (s *snatTask) heal() {
 		}
 
 		if healingState.IsHealingNecessary(s.clock) {
-			logrus.Info("[SNAT Task] Found a ready non healed windows node: " + node.Name)
+			logrus.Info("[SNAT Task] Attempting to heal the node: " + node.Name + ", healing since: " + healingState.HealingStartedAt.String())
 			s.metrics.IncHealAttemptsCounter()
 
 			err := s.deleteHealingPodIfAlreadyScheduled(node.Name)
@@ -173,10 +173,15 @@ func (s *snatTask) initializeHealingStateIfRequired(nodeName string) {
 }
 
 func (s *snatTask) deleteHealingPodIfAlreadyScheduled(nodeName string) error {
-	err := s.kubernetesService.DeletePod(consts.NodeHealerNamespace, consts.NodeHealerPodNamePrefix+nodeName)
+	podName := consts.NodeHealerPodNamePrefix + nodeName
+	namespace := consts.NodeHealerNamespace
+	logrus.Debugf("[SNAT Task] deleting pod %s in the namespace %s", podName, namespace)
+
+	err := s.kubernetesService.DeletePod(namespace, podName)
 
 	// as the method name suggests, this error can be ignored
 	if apierrors.IsNotFound(err) {
+		logrus.Debugf("[SNAT Task] pod %s in the namespace %s was not found", podName, namespace)
 		return nil
 	} else {
 		return err
@@ -184,6 +189,9 @@ func (s *snatTask) deleteHealingPodIfAlreadyScheduled(nodeName string) error {
 }
 
 func (s *snatTask) createHealingPod(nodeName string) error {
+	podName := consts.NodeHealerPodNamePrefix + nodeName
+	logrus.Debugf("[SNAT Task] creating pod for the node %s with the name %s", nodeName, podName)
+
 	return s.kubernetesService.CreatePod(GetHealingPodDefinition(nodeName))
 }
 
@@ -205,5 +213,6 @@ func (s *snatTask) handleError(nodeName string, err error) {
 }
 
 func (s *snatTask) markNodeHealed(nodeName string) error {
+	logrus.Infof("[SNAT Task] marking node %s as healed.", nodeName)
 	return s.kubernetesService.AddNodeAnnotation(nodeName, consts.NodeHealedAnnotation, "true")
 }
