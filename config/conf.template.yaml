@@ -1,0 +1,16 @@
+# Use this file as the config template -> copy and rename to conf.yaml if you want it to be loaded via the application.
+# The configuration file can either remain in this directory, or be placed in /etc/vigilante/config directory.
+# All values in this file are and should be optional configuration values.
+
+# Set to load the TLS certificate from the /etc/vigilante/certs/tls.crt and /etc/vigilante/certs/tls.key locations.
+server_use_tls: false
+
+# Interval in seconds for the scheduler loop which executes all the tasks.
+interval: 30
+
+tasks:
+  snat:
+    # Tolerations in Kuberentes format which will be used when scheduling the healing pod. Format can be
+    # found here: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+    # The array will be applied to the deployment 1:1 without modifications.
+    healing_pod_tolerations: []
