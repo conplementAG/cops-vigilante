@@ -44,8 +44,8 @@ spec:
             readOnlyRootFilesystem: false
             runAsNonRoot: true
             runAsUser: 1000
-#          resources:
-#            { { - toYaml .Values.resources | nindent 12 } }
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
       volumes:
         - name: tls-certs
           secret:
