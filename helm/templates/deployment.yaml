@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "coreops-vigilante.labels" . | nindent 4 }}
 spec:
-  replicas: 1 # TODO not really tested for running in multi-replica mode, although it should work fine
+  replicas: 1
   selector:
     matchLabels:
       {{- include "coreops-vigilante.selectorLabels" . | nindent 6 }}
@@ -19,6 +19,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
+{{ if .Values.create_certificates }}
           ports:
             - name: http
               containerPort: 8443
@@ -33,10 +34,28 @@ spec:
               path: /health
               port: http
               scheme: HTTPS
+{{ else }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+{{ end }}
           volumeMounts:
+{{ if .Values.create_certificates }}
             - name: tls-certs
               mountPath: /etc/vigilante/certs
               readOnly: true
+{{ end }}
             - name: config-file
               mountPath: /etc/vigilante/config
               readOnly: true
@@ -50,9 +69,11 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+{{ if .Values.create_certificates }}
         - name: tls-certs
           secret:
             secretName: {{ include "coreops-vigilante.fullname" . }}-tls
+{{ end }}
         - name: config-file
           configMap:
             name: {{ include "coreops-vigilante.fullname" . }}

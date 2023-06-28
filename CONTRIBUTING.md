@@ -13,3 +13,6 @@ commands, such as:
 - go run . deploy
 - go run . build-and-deploy
 - go run . cleanup
+
+The config in config/conf.yaml will be given to Helm and passed to the application. You can modify the code in dev/main.go
+to set different values for the Helm values.yaml file. 

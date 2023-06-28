@@ -38,6 +38,13 @@ cops-vigilante-snat-node-healed: "true"
 ```
 will be added. Setting this annotation to "false", or removing it completely, will restart the healing process for this node.
 
+# General features
+
+## TLS via CertManager
+
+To enable TLS for internal HTTP endpoint, you can use the Helm flag "create_certificates". Also make sure to set the "tls" option in the config
+section to true to load these certificates.
+
 # Development
 
 Check [CONTRIBUTING.md](CONTRIBUTING.md) 

@@ -1,3 +1,4 @@
+{{ if .Values.create_certificates }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -52,3 +53,4 @@ spec:
   isCA: false
   issuerRef:
     name: {{ include "coreops-vigilante.fullname" . }}-issuer
+{{ end }}

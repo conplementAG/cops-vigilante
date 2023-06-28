@@ -5,6 +5,10 @@ image:
   tag: latest
   pullPolicy: Always
 
+# Set to create and mount certificates using CertManager and the self-signed strategy. Don't forget to load
+# these certificates in the application using the config tls setting (check the conf.template.yaml file).
+create_certificates: false
+
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
