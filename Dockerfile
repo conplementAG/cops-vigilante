@@ -29,4 +29,4 @@ USER nonroot:nonroot
 COPY --from=build --chown=nonroot:nonroot /out /app
 
 WORKDIR /app
-ENTRYPOINT ["./vigilante", "run", "--tls"]
+ENTRYPOINT ["./vigilante", "run"]

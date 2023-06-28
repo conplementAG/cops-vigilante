@@ -3,7 +3,7 @@
 # All values in this file are and should be optional configuration values.
 
 # Set to load the TLS certificate from the /etc/vigilante/certs/tls.crt and /etc/vigilante/certs/tls.key locations.
-server_use_tls: false
+tls: false
 
 # Interval in seconds for the scheduler loop which executes all the tasks.
 interval: 30

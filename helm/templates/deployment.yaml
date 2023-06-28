@@ -18,7 +18,7 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
           ports:
             - name: http
               containerPort: 8443
@@ -37,6 +37,9 @@ spec:
             - name: tls-certs
               mountPath: /etc/vigilante/certs
               readOnly: true
+            - name: config-file
+              mountPath: /etc/vigilante/config
+              readOnly: true
           securityContext:
             capabilities:
               drop:
@@ -50,5 +53,8 @@ spec:
         - name: tls-certs
           secret:
             secretName: {{ include "coreops-vigilante.fullname" . }}-tls
+        - name: config-file
+          configMap:
+            name: {{ include "coreops-vigilante.fullname" . }}
       nodeSelector:
         kubernetes.io/os: linux

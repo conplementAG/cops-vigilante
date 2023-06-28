@@ -16,3 +16,6 @@ resources: {}
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
+
+# Config file as declared in config/conf.template.yaml
+config: {}

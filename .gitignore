@@ -4,3 +4,5 @@ cmd/.DS_Store
 config/conf.yaml
 cmd/dev/.generated
 helm/values.override.yaml
+
+cmd/dev/vigilante-dev-cli.log

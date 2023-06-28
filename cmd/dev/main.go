@@ -10,6 +10,7 @@ import (
 	"github.com/conplementag/cops-vigilante/pkg/vigilante/helpers"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"time"
@@ -102,11 +103,29 @@ func deploy(hq copshq.HQ) {
 
 	helm := helmhq.New(hq.GetExecutor(), namespace, "cops-vigilante", filepath.Join(copshq.ProjectBasePath, "helm"))
 
+	// we will take our local config and transfer it via helm to the application
+	configFilePath := filepath.Join(copshq.ProjectBasePath, "config", "conf.yaml")
+	configYaml, err := os.ReadFile(configFilePath)
+
+	if err != nil {
+		logrus.Error(err)
+		panic("Could not parse the local config file in " + configFilePath)
+	}
+
+	configParsed := make(map[string]interface{})
+	err = yaml.Unmarshal(configYaml, &configParsed)
+	if err != nil {
+		logrus.Error(err)
+		panic("Unmarshalling of the yaml file failed. Config file location was in: " + configFilePath)
+	}
+
 	configuration := map[string]interface{}{
 		"image": map[string]interface{}{
 			"repository": viper.GetString(ArgumentAzureContainerRegistry) + "/" + VigilanteImageName,
 			"tag":        viper.GetString(ArgumentVigilanteTag),
-		}}
+		},
+		"config": configParsed,
+	}
 
 	helm.SetVariables(configuration)
 	helm.Deploy()
