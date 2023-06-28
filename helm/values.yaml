@@ -9,6 +9,9 @@ image:
 # these certificates in the application using the config tls setting (check the conf.template.yaml file).
 create_certificates: false
 
+# Set to create the Prometheus Operator Service Monitor for the application
+create_service_monitor: false
+
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little

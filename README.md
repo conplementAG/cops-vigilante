@@ -45,6 +45,11 @@ will be added. Setting this annotation to "false", or removing it completely, wi
 To enable TLS for internal HTTP endpoint, you can use the Helm flag "create_certificates". Also make sure to set the "tls" option in the config
 section to true to load these certificates.
 
+## Prometheus integration via ServiceMonitor
+
+Use the Helm flag "create_service_monitor" to enable the deplyoment of Prometheus Operator's ServiceMonitor resource. Metrics provided are prefixed
+with "cops_vigilante_".
+
 # Development
 
 Check [CONTRIBUTING.md](CONTRIBUTING.md) 

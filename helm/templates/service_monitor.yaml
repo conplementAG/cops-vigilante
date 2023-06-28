@@ -1,3 +1,4 @@
+{{ if .Values.create_service_monitor }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -15,3 +16,4 @@ spec:
       interval: 30s
       path: /metrics
       honorLabels: true
+{{ end }}
