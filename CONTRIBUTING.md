@@ -22,6 +22,10 @@ to set different values for the Helm values.yaml file.
 Our main branch should always contain the last stable release source code. We host GitHub Pages from our main branch, 
 which serves as a Helm repository for our chart. 
 
+Merges to main will trigger both CI & CD workflows:
+- CI will build and push the Docker container
+- CD will deploy the Helm chart to a separate branch, which is used as a Helm Repository via GitHub pages
+
 Full development / release cycle looks like follows:
 - you create your dev / release branch(es), and after all the PR reviews are done, you merge to main
 - then you first release the new container using GitHub actions CI process
