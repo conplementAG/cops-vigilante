@@ -1,8 +1,8 @@
 # Default values for cops-vigilante
 
 image:
-  repository: conplementag/coreops-vigilante
-  tag: latest
+  repository: conplementag/cops-vigilante
+  tag: 1.0.5
   pullPolicy: Always
 
 # Set to create and mount certificates using CertManager and the self-signed strategy. Don't forget to load
