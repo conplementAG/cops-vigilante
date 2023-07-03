@@ -16,7 +16,7 @@ metadata:
 rules:
   - apiGroups: [ "" ]
     resources: [ "nodes" ] # for example, to find nodes which are not fixed yet
-    verbs: ["get", "list", "patch"]
+    verbs: ["get", "list", "update"]
   - apiGroups: [ "" ]
     resources: [ "pods" ] # for example, to schedule pods like in SNAT task, trying to fix the node
     verbs: ["get", "list", "update", "create", "patch", "delete"]
