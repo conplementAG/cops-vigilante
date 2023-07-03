@@ -7,9 +7,14 @@ to such problems. "Tasks" which are performed via cops-vigilante are explained b
 
 # Installation
 
-Installation is supported via Helm.
+Installation is supported via Helm. 
 
-TODO: GitHub pages and project setup https://medium.com/@mattiaperi/create-a-public-helm-chart-repository-with-github-pages-49b180dbb417
+``` bash
+helm repo add cops-vigilante https://conplementag.github.io/cops-vigilante
+helm repo update
+
+helm install cops-vigilante cops-vigilante --namespace <<your-namespace>> --create-namespace --version v1.1.0
+```
 
 # Tasks
 

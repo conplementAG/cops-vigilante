@@ -2,9 +2,8 @@ name: Helm Chart CD
 
 on:
   push:
-    branches:
-      - main
-
+    tags:
+      - 'v*'
 jobs:
   release:
     # depending on default permission settings for your org (contents being read-only or read-write for workloads), you will have to add permissions
@@ -31,6 +30,7 @@ jobs:
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.5.0
         with:
+          # for some reason, this task always seeks all charts one directory below what is specified here, so we cannot write "helm" as a directory here
           charts_dir: .
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

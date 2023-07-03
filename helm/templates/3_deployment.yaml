@@ -15,6 +15,7 @@ spec:
       labels:
         {{- include "coreops-vigilante.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "coreops-vigilante.fullname" . }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
