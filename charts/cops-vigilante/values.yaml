@@ -2,7 +2,7 @@
 
 image:
   repository: conplementag/cops-vigilante
-  tag: 1.1.1
+  tag: 1.1.2
   pullPolicy: Always
 
 # Set to create and mount certificates using CertManager and the self-signed strategy. Don't forget to load
