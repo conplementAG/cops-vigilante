@@ -13,7 +13,7 @@ Installation is supported via Helm.
 helm repo add cops-vigilante https://conplementag.github.io/cops-vigilante
 helm repo update
 
-helm install cops-vigilante cops-vigilante --namespace <<your-namespace>> --create-namespace --version v1.0.5
+helm install cops-vigilante cops-vigilante --namespace <<your-namespace>> --create-namespace --version v1.1.0
 ```
 
 # Tasks
