@@ -31,6 +31,6 @@ jobs:
         uses: helm/chart-releaser-action@v1.5.0
         with:
           # for some reason, this task always seeks all charts one directory below what is specified here, so we cannot write "helm" as a directory here
-          charts_dir: .
+          charts_dir: charts
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
