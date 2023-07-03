@@ -19,19 +19,11 @@ to set different values for the Helm values.yaml file.
 
 # Release process
 
-Our main branch should always contain the last stable release source code. We host GitHub Pages from our main branch, 
-which serves as a Helm repository for our chart. 
+Our main branch should always contain the last stable release source code.
 
-Merges to main will trigger both CI & CD workflows:
-- CI will build and push the Docker container
-- CD will deploy the Helm chart to a separate branch, which is used as a Helm Repository via GitHub pages
-
-Full development / release cycle looks like follows:
-- you create your dev / release branch(es), and after all the PR reviews are done, you merge to main
-- then you first release the new container using GitHub actions CI process
-- and now you can create a new Helm chart:
-  - you create a new branch for the Helm chart changes
-  - you take the new container version, write it in  helm/values.yaml file as the new "default" version
-  - you increment the helm chart and application versions in the Chart.yaml file
-  - from the helm directory, run 'helm package .' and then 'helm repo index --url https://conplementag.github.io/cops-hq/ --merge index.yaml .'
-  - merge to main (including the new .tgz files) - this automatically updates the GitHub pages, which expose the new index.yaml and makes the new chart available
+Process is as follows:
+- Update all the versions to the next version (search of vX.X.X of the latest release in the source code, e.g. README.md,
+Helm Chart values.yaml and chart.yaml etc.) in a release / feature branch
+- Merge via PR (CI will run as a validation gate, and also after merging to main, but nothing will be pushed or released yet)
+- Tag the main branch with the next vX.X.X version, and push the tag. This will trigger both CI & CD Workflows to release
+both the Docker container and the Helm chart (new version will be available via our GitHub Pages Helm repo)
