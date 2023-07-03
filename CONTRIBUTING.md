@@ -23,7 +23,8 @@ Our main branch should always contain the last stable release source code.
 
 Process is as follows:
 (1) Update all the versions to the next version (search of vX.X.X of the latest release in the source code, e.g. README.md,
-Helm Chart values.yaml and chart.yaml etc.) in a release / feature branch
+Helm Chart values.yaml and chart.yaml etc.) in a release / feature branch. Do not manually edit the charts/index.yaml file, 
+this should still contain older releases!
 - Update the Helm repo via running these commands in that same branch:
 
 ```
