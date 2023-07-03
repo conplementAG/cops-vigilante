@@ -10,10 +10,10 @@ to such problems. "Tasks" which are performed via cops-vigilante are explained b
 Installation is supported via Helm. 
 
 ``` bash
-helm repo add cops-vigilante https://conplementag.github.io/cops-vigilante
+helm repo add cops-vigilante https://conplementag.github.io/cops-vigilante/charts
 helm repo update
 
-helm install cops-vigilante cops-vigilante --namespace <<your-namespace>> --create-namespace --version v1.1.3
+helm install cops-vigilante cops-vigilante --namespace <<your-namespace>> --create-namespace --version v1.1.4
 ```
 
 # Tasks

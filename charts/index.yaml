@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  cops-vigilante:
+  - apiVersion: v2
+    appVersion: 1.1.4
+    created: "2023-07-03T13:15:22.840437+02:00"
+    description: cops-vigilante
+    digest: 3660cbf4ac8ebd84841925d56ef8a178b13ed4f70812cdec150d6f44f6c782dc
+    name: cops-vigilante
+    type: application
+    urls:
+    - https://conplementag.github.io/cops-vigilante/charts/cops-vigilante-1.1.4.tgz
+    version: 1.1.4
+generated: "2023-07-03T13:15:22.838486+02:00"
