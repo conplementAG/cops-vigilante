@@ -8,3 +8,5 @@ helm/values.override.yaml
 cmd/dev/vigilante-dev-cli.log
 
 charts/cops-vigilante/values.override.yaml
+
+charts/values.override.yaml

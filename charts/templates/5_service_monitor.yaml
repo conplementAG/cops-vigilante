@@ -17,3 +17,8 @@ spec:
       path: /metrics
       honorLabels: true
 {{ end }}
+{{ if and .Values.create_service_monitor .Values.create_certificates }} # nested ifs not working
+      scheme: https
+      tlsConfig:
+         insecureSkipVerify: true
+{{ end }}
