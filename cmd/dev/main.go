@@ -146,7 +146,8 @@ func buildAndDeploy(hq copshq.HQ) {
 func cleanup(hq copshq.HQ) {
 	logrus.Info("==================           Cleanup               ====================")
 	namespace := viper.GetString(ArgumentNamespace)
-	hq.GetExecutor().Execute(fmt.Sprintf("kubectl delete namespace %s", namespace))
+	hq.GetExecutor().ExecuteLoud(fmt.Sprintf("helm delete cops-vigilante -n %s", namespace))
+	hq.GetExecutor().ExecuteLoud(fmt.Sprintf("kubectl delete namespace %s", namespace))
 
 	logrus.Info("==================        Cleanup completed        ====================")
 }
