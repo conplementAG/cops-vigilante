@@ -101,7 +101,8 @@ func deploy(hq copshq.HQ) {
 	namespace := viper.GetString(ArgumentNamespace)
 	createNamespace(executor, namespace)
 
-	helm := helmhq.New(hq.GetExecutor(), namespace, "cops-vigilante", filepath.Join(copshq.ProjectBasePath, "charts", "cops-vigilante"))
+	helm := helmhq.New(hq.GetExecutor(), namespace, "cops-vigilante",
+		filepath.Join(copshq.ProjectBasePath, "charts"))
 
 	// we will take our local config and transfer it via helm to the application
 	configFilePath := filepath.Join(copshq.ProjectBasePath, "config", "conf.yaml")
